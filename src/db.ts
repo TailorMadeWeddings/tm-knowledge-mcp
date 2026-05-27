@@ -13,13 +13,16 @@ export function createDb(connectionString: string) {
 		prepare: false,
 		fetch_types: false,
 		max: 1,
-		ssl: "require",
+		// Workers' cloudflare:sockets TLS path requires direct TLS, not
+		// STARTTLS negotiation.  ssl:"require" triggers STARTTLS which
+		// silently hangs against Supabase's Supavisor pooler on port 6543.
+		ssl: true,
 		connect_timeout: 10,
 		idle_timeout: 20,
 		onnotice: () => {},
 	});
 
-	console.log("[db] Postgres client created (prepare=false, fetch_types=false, max=1)");
+	console.log("[db] Postgres client created (ssl=true, prepare=false, fetch_types=false, max=1)");
 	return sql;
 }
 
