@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type Db } from "../db";
+import { dbQuery, type MakeDb } from "../db";
 import { embedBatch } from "../embed";
 
 const TARGET_CHARS = 3200; // ~800 tokens
@@ -34,7 +34,7 @@ function chunkText(text: string): string[] {
 	return chunks;
 }
 
-export function register(server: McpServer, db: Db, apiKey: string, email: string) {
+export function register(server: McpServer, makeDb: MakeDb, apiKey: string, email: string) {
 	server.tool(
 		"ingest_document",
 		"Ingest a reference document: chunk it, embed all chunks, and store in the knowledge base.",
@@ -49,51 +49,57 @@ export function register(server: McpServer, db: Db, apiKey: string, email: strin
 		},
 		async ({ title, kind, source, text }) => {
 			console.log(`[ingest_document] ENTER title="${title}" len=${text.length}`);
-			// Parent document record
-			const [doc] = await dbQuery("ingest_document.insert_doc", () => db`
-				INSERT INTO kb.documents (title, kind, source, added_by)
-				VALUES (${title}, ${kind}, ${source}, ${email})
-				RETURNING id
-			`);
 
-			const chunks = chunkText(text);
-			const vectors = await embedBatch(chunks, "document", apiKey);
-
-			for (let i = 0; i < chunks.length; i++) {
-				const chunkTitle = chunks.length > 1 ? `${title} [${i + 1}/${chunks.length}]` : title;
-				const vecStr = `[${vectors[i].join(",")}]`;
-
-				await dbQuery(`ingest_document.chunk_${i + 1}`, () => db`
-					INSERT INTO kb.entries (
-						title, body, kind, tags, source, source_doc_id,
-						entered_by, originated_by, embedding
-					) VALUES (
-						${chunkTitle}, ${chunks[i]}, ${kind}, ${db.array([])},
-						${source}, ${doc.id},
-						${email}, ${db.array([email])},
-						${vecStr}::vector(1536)
-					)
+			const db = makeDb();
+			try {
+				// Parent document record
+				const [doc] = await dbQuery("ingest_document.insert_doc", () => db`
+					INSERT INTO kb.documents (title, kind, source, added_by)
+					VALUES (${title}, ${kind}, ${source}, ${email})
+					RETURNING id
 				`);
+
+				const chunks = chunkText(text);
+				const vectors = await embedBatch(chunks, "document", apiKey);
+
+				for (let i = 0; i < chunks.length; i++) {
+					const chunkTitle = chunks.length > 1 ? `${title} [${i + 1}/${chunks.length}]` : title;
+					const vecStr = `[${vectors[i].join(",")}]`;
+
+					await dbQuery(`ingest_document.chunk_${i + 1}`, () => db`
+						INSERT INTO kb.entries (
+							title, body, kind, tags, source, source_doc_id,
+							entered_by, originated_by, embedding
+						) VALUES (
+							${chunkTitle}, ${chunks[i]}, ${kind}, ${db.array([])},
+							${source}, ${doc.id},
+							${email}, ${db.array([email])},
+							${vecStr}::vector(1536)
+						)
+					`);
+				}
+
+				// Audit
+				await dbQuery("ingest_document.audit", () => db`
+					INSERT INTO kb.audit (entry_id, action, actor, payload)
+					VALUES (null, 'add', ${email}, ${JSON.stringify({ document_id: doc.id, title, chunks: chunks.length })}::jsonb)
+				`);
+
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: JSON.stringify({
+								status: "ingested",
+								document_id: doc.id,
+								chunks: chunks.length,
+							}),
+						},
+					],
+				};
+			} finally {
+				await db.end();
 			}
-
-			// Audit
-			await dbQuery("ingest_document.audit", () => db`
-				INSERT INTO kb.audit (entry_id, action, actor, payload)
-				VALUES (null, 'add', ${email}, ${JSON.stringify({ document_id: doc.id, title, chunks: chunks.length })}::jsonb)
-			`);
-
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: JSON.stringify({
-							status: "ingested",
-							document_id: doc.id,
-							chunks: chunks.length,
-						}),
-					},
-				],
-			};
 		},
 	);
 }

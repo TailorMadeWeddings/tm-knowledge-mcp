@@ -37,3 +37,4 @@ export async function dbQuery<T>(label: string, fn: () => Promise<T>): Promise<T
 }
 
 export type Db = ReturnType<typeof createDb>;
+export type MakeDb = () => Db;

@@ -1,9 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type Db } from "../db";
+import { dbQuery, type MakeDb } from "../db";
 import { embed } from "../embed";
 
-export function register(server: McpServer, db: Db, apiKey: string) {
+export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 	server.tool(
 		"search_knowledge",
 		"Search the shared knowledge base by semantic similarity. Returns ranked results.",
@@ -20,39 +20,44 @@ export function register(server: McpServer, db: Db, apiKey: string) {
 			const vec = await embed(query, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 
-			const rows = await dbQuery("search_knowledge.match_entries", () =>
-				kinds?.length
-					? db`
-						SELECT id, title, body, kind, tags, source, originated_by, similarity
-						FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${db.array(kinds)}::text[])
-					`
-					: db`
-						SELECT id, title, body, kind, tags, source, originated_by, similarity
-						FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8})
-					`,
-			);
+			const db = makeDb();
+			try {
+				const rows = await dbQuery("search_knowledge.match_entries", () =>
+					kinds?.length
+						? db`
+							SELECT id, title, body, kind, tags, source, originated_by, similarity
+							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${db.array(kinds)}::text[])
+						`
+						: db`
+							SELECT id, title, body, kind, tags, source, originated_by, similarity
+							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8})
+						`,
+				);
 
-			return {
-				content: [
-					{
-						type: "text" as const,
-						text: JSON.stringify(
-							rows.map((r) => ({
-								id: r.id,
-								title: r.title,
-								body: r.body,
-								kind: r.kind,
-								tags: r.tags,
-								source: r.source,
-								originated_by: r.originated_by,
-								similarity: Number(r.similarity).toFixed(4),
-							})),
-							null,
-							2,
-						),
-					},
-				],
-			};
+				return {
+					content: [
+						{
+							type: "text" as const,
+							text: JSON.stringify(
+								rows.map((r) => ({
+									id: r.id,
+									title: r.title,
+									body: r.body,
+									kind: r.kind,
+									tags: r.tags,
+									source: r.source,
+									originated_by: r.originated_by,
+									similarity: Number(r.similarity).toFixed(4),
+								})),
+								null,
+								2,
+							),
+						},
+					],
+				};
+			} finally {
+				await db.end();
+			}
 		},
 	);
 }

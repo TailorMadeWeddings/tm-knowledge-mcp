@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type Db } from "../db";
+import { dbQuery, type MakeDb } from "../db";
 
-export function register(server: McpServer, db: Db, email: string) {
+export function register(server: McpServer, makeDb: MakeDb, email: string) {
 	server.tool(
 		"link_ideas",
 		"Create an explicit link between two knowledge-base entries (idempotent).",
@@ -13,20 +13,25 @@ export function register(server: McpServer, db: Db, email: string) {
 		},
 		async ({ from_id, to_id, relationship }) => {
 			console.log(`[link_ideas] ENTER ${from_id} -> ${to_id} (${relationship})`);
-			await dbQuery("link_ideas.insert", () => db`
-				INSERT INTO kb.links (from_id, to_id, relationship, created_by)
-				VALUES (${from_id}, ${to_id}, ${relationship}, ${email})
-				ON CONFLICT (from_id, to_id, relationship) DO NOTHING
-			`);
+			const db = makeDb();
+			try {
+				await dbQuery("link_ideas.insert", () => db`
+					INSERT INTO kb.links (from_id, to_id, relationship, created_by)
+					VALUES (${from_id}, ${to_id}, ${relationship}, ${email})
+					ON CONFLICT (from_id, to_id, relationship) DO NOTHING
+				`);
 
-			await dbQuery("link_ideas.audit", () => db`
-				INSERT INTO kb.audit (entry_id, action, actor, payload)
-				VALUES (${from_id}, 'link', ${email}, ${JSON.stringify({ to_id, relationship })}::jsonb)
-			`);
+				await dbQuery("link_ideas.audit", () => db`
+					INSERT INTO kb.audit (entry_id, action, actor, payload)
+					VALUES (${from_id}, 'link', ${email}, ${JSON.stringify({ to_id, relationship })}::jsonb)
+				`);
 
-			return {
-				content: [{ type: "text" as const, text: JSON.stringify({ status: "linked", from_id, to_id, relationship }) }],
-			};
+				return {
+					content: [{ type: "text" as const, text: JSON.stringify({ status: "linked", from_id, to_id, relationship }) }],
+				};
+			} finally {
+				await db.end();
+			}
 		},
 	);
 }
