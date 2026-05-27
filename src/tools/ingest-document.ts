@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { Db } from "../db";
+import { dbQuery, type Db } from "../db";
 import { embedBatch } from "../embed";
 
 const TARGET_CHARS = 3200; // ~800 tokens
@@ -49,11 +49,11 @@ export function register(server: McpServer, db: Db, apiKey: string, email: strin
 		},
 		async ({ title, kind, source, text }) => {
 			// Parent document record
-			const [doc] = await db`
+			const [doc] = await dbQuery("ingest_document.insert_doc", () => db`
 				INSERT INTO kb.documents (title, kind, source, added_by)
 				VALUES (${title}, ${kind}, ${source}, ${email})
 				RETURNING id
-			`;
+			`);
 
 			const chunks = chunkText(text);
 			const vectors = await embedBatch(chunks, "document", apiKey);
@@ -62,7 +62,7 @@ export function register(server: McpServer, db: Db, apiKey: string, email: strin
 				const chunkTitle = chunks.length > 1 ? `${title} [${i + 1}/${chunks.length}]` : title;
 				const vecStr = `[${vectors[i].join(",")}]`;
 
-				await db`
+				await dbQuery(`ingest_document.chunk_${i + 1}`, () => db`
 					INSERT INTO kb.entries (
 						title, body, kind, tags, source, source_doc_id,
 						entered_by, originated_by, embedding
@@ -72,14 +72,14 @@ export function register(server: McpServer, db: Db, apiKey: string, email: strin
 						${email}, ${db.array([email])},
 						${vecStr}::vector(1536)
 					)
-				`;
+				`);
 			}
 
 			// Audit
-			await db`
+			await dbQuery("ingest_document.audit", () => db`
 				INSERT INTO kb.audit (entry_id, action, actor, payload)
 				VALUES (null, 'add', ${email}, ${JSON.stringify({ document_id: doc.id, title, chunks: chunks.length })}::jsonb)
-			`;
+			`);
 
 			return {
 				content: [

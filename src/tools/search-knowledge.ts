@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { Db } from "../db";
+import { dbQuery, type Db } from "../db";
 import { embed } from "../embed";
 
 export function register(server: McpServer, db: Db, apiKey: string) {
@@ -16,18 +16,21 @@ export function register(server: McpServer, db: Db, apiKey: string) {
 			limit: z.number().min(1).max(25).optional().describe("Max results (default 8)"),
 		},
 		async ({ query, kinds, limit }) => {
+			console.log("[search_knowledge] embedding query");
 			const vec = await embed(query, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 
-			const rows = kinds?.length
-				? await db`
-					SELECT id, title, body, kind, tags, source, originated_by, similarity
-					FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${db.array(kinds)}::text[])
-				`
-				: await db`
-					SELECT id, title, body, kind, tags, source, originated_by, similarity
-					FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8})
-				`;
+			const rows = await dbQuery("search_knowledge.match_entries", () =>
+				kinds?.length
+					? db`
+						SELECT id, title, body, kind, tags, source, originated_by, similarity
+						FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${db.array(kinds)}::text[])
+					`
+					: db`
+						SELECT id, title, body, kind, tags, source, originated_by, similarity
+						FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8})
+					`,
+			);
 
 			return {
 				content: [

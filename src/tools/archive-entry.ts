@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { Db } from "../db";
+import { dbQuery, type Db } from "../db";
 
 export function register(server: McpServer, db: Db, email: string) {
 	server.tool(
@@ -10,11 +10,11 @@ export function register(server: McpServer, db: Db, email: string) {
 			id: z.string().uuid().describe("Entry ID to archive"),
 		},
 		async ({ id }) => {
-			const [row] = await db`
+			const [row] = await dbQuery("archive_entry.update", () => db`
 				UPDATE kb.entries SET is_deleted = true, updated_at = now()
 				WHERE id = ${id} AND is_deleted = false
 				RETURNING id
-			`;
+			`);
 
 			if (!row) {
 				return {
@@ -22,10 +22,10 @@ export function register(server: McpServer, db: Db, email: string) {
 				};
 			}
 
-			await db`
+			await dbQuery("archive_entry.audit", () => db`
 				INSERT INTO kb.audit (entry_id, action, actor, payload)
 				VALUES (${id}, 'archive', ${email}, '{}'::jsonb)
-			`;
+			`);
 
 			return {
 				content: [{ type: "text" as const, text: JSON.stringify({ status: "archived", id }) }],

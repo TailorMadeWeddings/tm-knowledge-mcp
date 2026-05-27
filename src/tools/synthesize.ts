@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { Db } from "../db";
+import { dbQuery, type Db } from "../db";
 import { embed } from "../embed";
 
 export function register(server: McpServer, db: Db, apiKey: string) {
@@ -16,19 +16,22 @@ export function register(server: McpServer, db: Db, apiKey: string) {
 			limit: z.number().min(1).max(30).optional().describe("Max entries (default 12)"),
 		},
 		async ({ topic, kinds, limit }) => {
+			console.log("[synthesize] embedding topic");
 			const vec = await embed(topic, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 			const max = limit ?? 12;
 
-			const entries = kinds?.length
-				? await db`
-					SELECT id, title, body, kind, tags, source, originated_by, similarity
-					FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${db.array(kinds)}::text[])
-				`
-				: await db`
-					SELECT id, title, body, kind, tags, source, originated_by, similarity
-					FROM kb.match_entries(${vecStr}::vector(1536), ${max})
-				`;
+			const entries = await dbQuery("synthesize.match_entries", () =>
+				kinds?.length
+					? db`
+						SELECT id, title, body, kind, tags, source, originated_by, similarity
+						FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${db.array(kinds)}::text[])
+					`
+					: db`
+						SELECT id, title, body, kind, tags, source, originated_by, similarity
+						FROM kb.match_entries(${vecStr}::vector(1536), ${max})
+					`,
+			);
 
 			if (entries.length === 0) {
 				return { content: [{ type: "text" as const, text: JSON.stringify({ entries: [], edges: [] }) }] };
@@ -36,12 +39,12 @@ export function register(server: McpServer, db: Db, apiKey: string) {
 
 			const ids = entries.map((e) => e.id);
 
-			const edges = await db`
+			const edges = await dbQuery("synthesize.links", () => db`
 				SELECT id, from_id, to_id, relationship, created_by
 				FROM kb.links
 				WHERE from_id = ANY(${db.array(ids)}::uuid[])
 				   OR to_id   = ANY(${db.array(ids)}::uuid[])
-			`;
+			`);
 
 			return {
 				content: [

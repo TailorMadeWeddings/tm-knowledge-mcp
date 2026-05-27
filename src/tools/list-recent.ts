@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { Db } from "../db";
+import { dbQuery, type Db } from "../db";
 
 export function register(server: McpServer, db: Db) {
 	server.tool(
@@ -17,24 +17,26 @@ export function register(server: McpServer, db: Db) {
 			const since = new Date();
 			since.setDate(since.getDate() - (days ?? 30));
 
-			const rows = kinds?.length
-				? await db`
-					SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
-					FROM kb.entries
-					WHERE is_deleted = false
-					  AND created_at >= ${since.toISOString()}
-					  AND kind = ANY(${db.array(kinds)}::text[])
-					ORDER BY created_at DESC
-					LIMIT ${limit ?? 20}
-				`
-				: await db`
-					SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
-					FROM kb.entries
-					WHERE is_deleted = false
-					  AND created_at >= ${since.toISOString()}
-					ORDER BY created_at DESC
-					LIMIT ${limit ?? 20}
-				`;
+			const rows = await dbQuery("list_recent.select", () =>
+				kinds?.length
+					? db`
+						SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
+						FROM kb.entries
+						WHERE is_deleted = false
+						  AND created_at >= ${since.toISOString()}
+						  AND kind = ANY(${db.array(kinds)}::text[])
+						ORDER BY created_at DESC
+						LIMIT ${limit ?? 20}
+					`
+					: db`
+						SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
+						FROM kb.entries
+						WHERE is_deleted = false
+						  AND created_at >= ${since.toISOString()}
+						ORDER BY created_at DESC
+						LIMIT ${limit ?? 20}
+					`,
+			);
 
 			return {
 				content: [
