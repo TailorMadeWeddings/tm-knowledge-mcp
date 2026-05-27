@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
+import { z } from "zod";
 import { createDb } from "./db";
 import type { Props } from "./types";
 
@@ -20,6 +21,19 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 	async init() {
 		console.log(`[mcp] init email=${this.props?.email}`);
 
+		// Zero-I/O diagnostic tool — if this fires, framework dispatch works.
+		this.server.tool(
+			"ping",
+			"Returns pong. Zero-I/O diagnostic tool.",
+			{ message: z.string().optional().describe("Optional echo message") },
+			async ({ message }) => {
+				console.log(`[ping] ENTER message=${message ?? "(none)"}`);
+				return {
+					content: [{ type: "text" as const, text: message ? `pong: ${message}` : "pong" }],
+				};
+			},
+		);
+
 		// IMPORTANT: No async I/O here.  The DO re-runs init() on every
 		// hibernation wake-up; creating a Postgres client here opens a TCP
 		// connection that causes an IoContext timeout.  Instead, pass a
@@ -36,6 +50,6 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 		listRecent.register(this.server, makeDb);
 		ingestDocument.register(this.server, makeDb, apiKey, email);
 		archiveEntry.register(this.server, makeDb, email);
-		console.log("[mcp] all tools registered");
+		console.log("[mcp] all tools registered (8 total incl. ping)");
 	}
 }
