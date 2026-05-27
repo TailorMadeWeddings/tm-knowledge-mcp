@@ -24,7 +24,7 @@ export function register(server: McpServer, db: Db, apiKey: string, email: strin
 				.describe("Email(s) of who the idea belongs to (defaults to caller)"),
 		},
 		async ({ title, body, kind, tags, source, originated_by }) => {
-			console.log("[add_knowledge] embedding body");
+			console.log(`[add_knowledge] ENTER title="${title}" kind=${kind}`);
 			const vec = await embed(body, "document", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 

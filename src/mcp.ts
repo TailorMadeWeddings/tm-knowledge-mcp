@@ -18,6 +18,7 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 	});
 
 	async init() {
+		console.log(`[mcp] init email=${this.props?.email}`);
 		const db = createDb(this.env.KB_DB_CONNECTION);
 		const apiKey = this.env.GEMINI_API_KEY;
 		const email = this.props!.email;
@@ -29,5 +30,6 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 		listRecent.register(this.server, db);
 		ingestDocument.register(this.server, db, apiKey, email);
 		archiveEntry.register(this.server, db, email);
+		console.log("[mcp] all tools registered");
 	}
 }

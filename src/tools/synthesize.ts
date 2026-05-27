@@ -16,7 +16,7 @@ export function register(server: McpServer, db: Db, apiKey: string) {
 			limit: z.number().min(1).max(30).optional().describe("Max entries (default 12)"),
 		},
 		async ({ topic, kinds, limit }) => {
-			console.log("[synthesize] embedding topic");
+			console.log(`[synthesize] ENTER topic="${topic.slice(0, 80)}"`);
 			const vec = await embed(topic, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 			const max = limit ?? 12;

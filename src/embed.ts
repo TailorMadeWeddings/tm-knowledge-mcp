@@ -16,16 +16,24 @@ export async function embed(
 	kind: "document" | "query",
 	apiKey: string,
 ): Promise<number[]> {
-	const ai = new GoogleGenAI({ apiKey });
-	const res = await ai.models.embedContent({
-		model: MODEL,
-		contents: text,
-		config: {
-			outputDimensionality: DIM,
-			taskType: kind === "query" ? "RETRIEVAL_QUERY" : "RETRIEVAL_DOCUMENT",
-		},
-	});
-	return normalize(res.embeddings![0].values as number[]);
+	console.log(`[embed] start kind=${kind} len=${text.length}`);
+	try {
+		const ai = new GoogleGenAI({ apiKey });
+		const res = await ai.models.embedContent({
+			model: MODEL,
+			contents: text,
+			config: {
+				outputDimensionality: DIM,
+				taskType: kind === "query" ? "RETRIEVAL_QUERY" : "RETRIEVAL_DOCUMENT",
+			},
+		});
+		const vec = normalize(res.embeddings![0].values as number[]);
+		console.log(`[embed] ok dim=${vec.length}`);
+		return vec;
+	} catch (err: any) {
+		console.error(`[embed] FAIL`, err?.message ?? err);
+		throw err;
+	}
 }
 
 /** Embed multiple texts sequentially. Can be optimised to batchEmbedContents later. */

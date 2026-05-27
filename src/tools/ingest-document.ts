@@ -48,6 +48,7 @@ export function register(server: McpServer, db: Db, apiKey: string, email: strin
 			text: z.string().describe("Full document text"),
 		},
 		async ({ title, kind, source, text }) => {
+			console.log(`[ingest_document] ENTER title="${title}" len=${text.length}`);
 			// Parent document record
 			const [doc] = await dbQuery("ingest_document.insert_doc", () => db`
 				INSERT INTO kb.documents (title, kind, source, added_by)

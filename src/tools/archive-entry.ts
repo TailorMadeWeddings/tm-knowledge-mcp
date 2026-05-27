@@ -10,6 +10,7 @@ export function register(server: McpServer, db: Db, email: string) {
 			id: z.string().uuid().describe("Entry ID to archive"),
 		},
 		async ({ id }) => {
+			console.log(`[archive_entry] ENTER id=${id}`);
 			const [row] = await dbQuery("archive_entry.update", () => db`
 				UPDATE kb.entries SET is_deleted = true, updated_at = now()
 				WHERE id = ${id} AND is_deleted = false

@@ -14,6 +14,7 @@ export function register(server: McpServer, db: Db) {
 			limit: z.number().min(1).max(50).optional().describe("Max results (default 20)"),
 		},
 		async ({ kinds, days, limit }) => {
+			console.log(`[list_recent] ENTER kinds=${kinds ?? "all"} days=${days ?? 30}`);
 			const since = new Date();
 			since.setDate(since.getDate() - (days ?? 30));
 

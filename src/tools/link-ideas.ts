@@ -12,6 +12,7 @@ export function register(server: McpServer, db: Db, email: string) {
 			relationship: z.enum(["builds_on", "relates_to", "contradicts", "refines", "example_of"]),
 		},
 		async ({ from_id, to_id, relationship }) => {
+			console.log(`[link_ideas] ENTER ${from_id} -> ${to_id} (${relationship})`);
 			await dbQuery("link_ideas.insert", () => db`
 				INSERT INTO kb.links (from_id, to_id, relationship, created_by)
 				VALUES (${from_id}, ${to_id}, ${relationship}, ${email})

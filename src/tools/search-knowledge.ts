@@ -16,7 +16,7 @@ export function register(server: McpServer, db: Db, apiKey: string) {
 			limit: z.number().min(1).max(25).optional().describe("Max results (default 8)"),
 		},
 		async ({ query, kinds, limit }) => {
-			console.log("[search_knowledge] embedding query");
+			console.log(`[search_knowledge] ENTER query="${query.slice(0, 80)}"`);
 			const vec = await embed(query, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 
