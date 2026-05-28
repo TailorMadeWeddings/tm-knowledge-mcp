@@ -35,7 +35,7 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 		);
 
 		// DB connectivity diagnostic — opens a connection, runs SELECT 1.
-		const connStrForPing = this.env.KB_DB_CONNECTION;
+		const hyperdriveConnStr = this.env.HYPERDRIVE.connectionString;
 		this.server.tool(
 			"db_ping",
 			"Opens a Postgres connection and runs SELECT 1. Returns ok + elapsed ms.",
@@ -43,7 +43,7 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 			async () => {
 				console.log("[db_ping] ENTER");
 				const t0 = Date.now();
-				const db = createDb(connStrForPing);
+				const db = createDb(hyperdriveConnStr);
 				try {
 					console.log("[db_ping] running SELECT 1");
 					const [row] = await db`SELECT 1 as ok`;
@@ -68,7 +68,7 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 		// hibernation wake-up; creating a Postgres client here opens a TCP
 		// connection that causes an IoContext timeout.  Instead, pass a
 		// zero-cost factory — each tool creates and disposes its own client.
-		const connStr = this.env.KB_DB_CONNECTION;
+		const connStr = this.env.HYPERDRIVE.connectionString;
 		const makeDb = () => createDb(connStr);
 		const apiKey = this.env.GEMINI_API_KEY;
 		const email = this.props!.email;

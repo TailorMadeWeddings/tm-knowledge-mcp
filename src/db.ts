@@ -10,19 +10,14 @@ import postgres from "postgres";
  */
 export function createDb(connectionString: string) {
 	const sql = postgres(connectionString, {
+		// Hyperdrive handles TLS to the origin DB — no ssl config here.
+		// max:5 per Cloudflare's Postgres.js + Hyperdrive example.
 		prepare: false,
 		fetch_types: false,
-		max: 1,
-		// Workers' cloudflare:sockets TLS path requires direct TLS, not
-		// STARTTLS negotiation.  ssl:"require" triggers STARTTLS which
-		// silently hangs against Supabase's Supavisor pooler on port 6543.
-		ssl: true,
-		connect_timeout: 10,
-		idle_timeout: 20,
-		onnotice: () => {},
+		max: 5,
 	});
 
-	console.log("[db] Postgres client created (ssl=true, prepare=false, fetch_types=false, max=1)");
+	console.log("[db] Postgres client created via Hyperdrive (prepare=false, fetch_types=false, max=5)");
 	return sql;
 }
 
