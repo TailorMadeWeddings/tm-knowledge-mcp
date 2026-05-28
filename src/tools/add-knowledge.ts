@@ -70,8 +70,8 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				const [inserted] = await dbQuery("add_knowledge.insert", () => db`
 					INSERT INTO kb.entries (title, body, kind, tags, source, entered_by, originated_by, embedding)
 					VALUES (
-						${title}, ${body}, ${kind}, ${db.array(finalTags)},
-						${source ?? null}, ${email}, ${db.array(finalOriginatedBy)},
+						${title}, ${body}, ${kind}, ${db.array(finalTags)}::text[],
+						${source ?? null}, ${email}, ${db.array(finalOriginatedBy)}::text[],
 						${vecStr}::vector(1536)
 					)
 					RETURNING id
