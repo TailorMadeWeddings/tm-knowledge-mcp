@@ -34,18 +34,6 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				? originated_by
 				: [email];
 
-			// Diagnostic: log every bound value with its JS type
-			console.log("[add_knowledge] params", JSON.stringify({
-				title: { type: typeof title, isArray: Array.isArray(title) },
-				kind: { type: typeof kind, isArray: Array.isArray(kind) },
-				tags: { type: typeof tags, isArray: Array.isArray(tags), raw: tags },
-				finalTags: { type: typeof finalTags, isArray: Array.isArray(finalTags), v: finalTags, pgLiteral: pgTextArray(finalTags) },
-				source: { type: typeof source, isArray: Array.isArray(source), v: source },
-				originated_by: { type: typeof originated_by, isArray: Array.isArray(originated_by), raw: originated_by },
-				finalOriginatedBy: { type: typeof finalOriginatedBy, isArray: Array.isArray(finalOriginatedBy), v: finalOriginatedBy, pgLiteral: pgTextArray(finalOriginatedBy) },
-				email: { type: typeof email, v: email },
-			}));
-
 			const db = makeDb();
 			try {
 				// Duplicate check
