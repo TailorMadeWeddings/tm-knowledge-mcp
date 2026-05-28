@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type MakeDb } from "../db";
+import { dbQuery, pgTextArray, type MakeDb } from "../db";
 import { embed } from "../embed";
 
 export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
@@ -19,14 +19,15 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 			console.log(`[search_knowledge] ENTER query="${query.slice(0, 80)}"`);
 			const vec = await embed(query, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
+			const kindsArr = Array.isArray(kinds) && kinds.length > 0 ? kinds : null;
 
 			const db = makeDb();
 			try {
 				const rows = await dbQuery("search_knowledge.match_entries", () =>
-					kinds?.length
+					kindsArr
 						? db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${kinds}::text[])
+							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${pgTextArray(kindsArr)}::text[])
 						`
 						: db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity

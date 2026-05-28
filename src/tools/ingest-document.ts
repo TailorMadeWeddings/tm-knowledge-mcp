@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type MakeDb } from "../db";
+import { dbQuery, pgTextArray, type MakeDb } from "../db";
 import { embedBatch } from "../embed";
 
 const TARGET_CHARS = 3200; // ~800 tokens
@@ -71,9 +71,9 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 							title, body, kind, tags, source, source_doc_id,
 							entered_by, originated_by, embedding
 						) VALUES (
-							${chunkTitle}, ${chunks[i]}, ${kind}, ${[]}::text[],
+							${chunkTitle}, ${chunks[i]}, ${kind}, ${pgTextArray([])}::text[],
 							${source}, ${doc.id},
-							${email}, ${[email]}::text[],
+							${email}, ${pgTextArray([email])}::text[],
 							${vecStr}::vector(1536)
 						)
 					`);

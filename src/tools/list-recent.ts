@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type MakeDb } from "../db";
+import { dbQuery, pgTextArray, type MakeDb } from "../db";
 
 export function register(server: McpServer, makeDb: MakeDb) {
 	server.tool(
@@ -17,17 +17,18 @@ export function register(server: McpServer, makeDb: MakeDb) {
 			console.log(`[list_recent] ENTER kinds=${kinds ?? "all"} days=${days ?? 30}`);
 			const since = new Date();
 			since.setDate(since.getDate() - (days ?? 30));
+			const kindsArr = Array.isArray(kinds) && kinds.length > 0 ? kinds : null;
 
 			const db = makeDb();
 			try {
 				const rows = await dbQuery("list_recent.select", () =>
-					kinds?.length
+					kindsArr
 						? db`
 							SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
 							FROM kb.entries
 							WHERE is_deleted = false
 							  AND created_at >= ${since.toISOString()}
-							  AND kind = ANY(${kinds}::text[])
+							  AND kind = ANY(${pgTextArray(kindsArr)}::text[])
 							ORDER BY created_at DESC
 							LIMIT ${limit ?? 20}
 						`

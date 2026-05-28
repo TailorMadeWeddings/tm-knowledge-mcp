@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type MakeDb } from "../db";
+import { dbQuery, pgTextArray, type MakeDb } from "../db";
 import { embed } from "../embed";
 
 const DUPLICATE_THRESHOLD = 0.92;
@@ -27,6 +27,24 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 			console.log(`[add_knowledge] ENTER title="${title}" kind=${kind}`);
 			const vec = await embed(body, "document", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
+
+			// Normalize array columns — always real JS arrays, never strings/undefined
+			const finalTags: string[] = Array.isArray(tags) ? tags : [];
+			const finalOriginatedBy: string[] = Array.isArray(originated_by) && originated_by.length > 0
+				? originated_by
+				: [email];
+
+			// Diagnostic: log every bound value with its JS type
+			console.log("[add_knowledge] params", JSON.stringify({
+				title: { type: typeof title, isArray: Array.isArray(title) },
+				kind: { type: typeof kind, isArray: Array.isArray(kind) },
+				tags: { type: typeof tags, isArray: Array.isArray(tags), raw: tags },
+				finalTags: { type: typeof finalTags, isArray: Array.isArray(finalTags), v: finalTags, pgLiteral: pgTextArray(finalTags) },
+				source: { type: typeof source, isArray: Array.isArray(source), v: source },
+				originated_by: { type: typeof originated_by, isArray: Array.isArray(originated_by), raw: originated_by },
+				finalOriginatedBy: { type: typeof finalOriginatedBy, isArray: Array.isArray(finalOriginatedBy), v: finalOriginatedBy, pgLiteral: pgTextArray(finalOriginatedBy) },
+				email: { type: typeof email, v: email },
+			}));
 
 			const db = makeDb();
 			try {
@@ -63,15 +81,14 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 					};
 				}
 
-				// Insert
-				const finalOriginatedBy = originated_by?.length ? originated_by : [email];
-				const finalTags = tags ?? [];
+				const pgTags = pgTextArray(finalTags);
+				const pgOrigBy = pgTextArray(finalOriginatedBy);
 
 				const [inserted] = await dbQuery("add_knowledge.insert", () => db`
 					INSERT INTO kb.entries (title, body, kind, tags, source, entered_by, originated_by, embedding)
 					VALUES (
-						${title}, ${body}, ${kind}, ${finalTags}::text[],
-						${source ?? null}, ${email}, ${finalOriginatedBy}::text[],
+						${title}, ${body}, ${kind}, ${pgTags}::text[],
+						${source ?? null}, ${email}, ${pgOrigBy}::text[],
 						${vecStr}::vector(1536)
 					)
 					RETURNING id

@@ -36,3 +36,21 @@ export async function dbQuery<T>(label: string, fn: () => Promise<T>): Promise<T
 
 export type Db = ReturnType<typeof createDb>;
 export type MakeDb = () => Db;
+
+/**
+ * Build a PostgreSQL array literal string from a JS array.
+ * Bypasses postgres.js type inference entirely — works with
+ * fetch_types:false and Hyperdrive.  Use with a ::text[] cast:
+ *
+ *   db`INSERT INTO t (col) VALUES (${pgTextArray(arr)}::text[])`
+ */
+export function pgTextArray(arr: string[]): string {
+	if (arr.length === 0) return "{}";
+	return (
+		"{" +
+		arr
+			.map((v) => '"' + v.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"')
+			.join(",") +
+		"}"
+	);
+}

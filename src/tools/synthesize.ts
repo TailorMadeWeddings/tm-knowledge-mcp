@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, type MakeDb } from "../db";
+import { dbQuery, pgTextArray, type MakeDb } from "../db";
 import { embed } from "../embed";
 
 export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
@@ -20,14 +20,15 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 			const vec = await embed(topic, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
 			const max = limit ?? 12;
+			const kindsArr = Array.isArray(kinds) && kinds.length > 0 ? kinds : null;
 
 			const db = makeDb();
 			try {
 				const entries = await dbQuery("synthesize.match_entries", () =>
-					kinds?.length
+					kindsArr
 						? db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${kinds}::text[])
+							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${pgTextArray(kindsArr)}::text[])
 						`
 						: db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity
@@ -39,13 +40,14 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 					return { content: [{ type: "text" as const, text: JSON.stringify({ entries: [], edges: [] }) }] };
 				}
 
-				const ids = entries.map((e) => e.id);
+				const ids = entries.map((e) => e.id as string);
+				const pgIds = pgTextArray(ids);
 
 				const edges = await dbQuery("synthesize.links", () => db`
 					SELECT id, from_id, to_id, relationship, created_by
 					FROM kb.links
-					WHERE from_id = ANY(${ids}::uuid[])
-					   OR to_id   = ANY(${ids}::uuid[])
+					WHERE from_id = ANY(${pgIds}::uuid[])
+					   OR to_id   = ANY(${pgIds}::uuid[])
 				`);
 
 				return {
