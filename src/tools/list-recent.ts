@@ -27,7 +27,7 @@ export function register(server: McpServer, makeDb: MakeDb) {
 							FROM kb.entries
 							WHERE is_deleted = false
 							  AND created_at >= ${since.toISOString()}
-							  AND kind = ANY(${db.array(kinds)}::text[])
+							  AND kind = ANY(${kinds}::text[])
 							ORDER BY created_at DESC
 							LIMIT ${limit ?? 20}
 						`

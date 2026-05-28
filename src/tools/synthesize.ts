@@ -27,7 +27,7 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 					kinds?.length
 						? db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${db.array(kinds)}::text[])
+							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${kinds}::text[])
 						`
 						: db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity
@@ -44,8 +44,8 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 				const edges = await dbQuery("synthesize.links", () => db`
 					SELECT id, from_id, to_id, relationship, created_by
 					FROM kb.links
-					WHERE from_id = ANY(${db.array(ids)}::uuid[])
-					   OR to_id   = ANY(${db.array(ids)}::uuid[])
+					WHERE from_id = ANY(${ids}::uuid[])
+					   OR to_id   = ANY(${ids}::uuid[])
 				`);
 
 				return {

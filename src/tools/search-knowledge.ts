@@ -26,7 +26,7 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 					kinds?.length
 						? db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${db.array(kinds)}::text[])
+							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${kinds}::text[])
 						`
 						: db`
 							SELECT id, title, body, kind, tags, source, originated_by, similarity

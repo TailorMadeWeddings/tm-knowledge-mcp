@@ -71,9 +71,9 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 							title, body, kind, tags, source, source_doc_id,
 							entered_by, originated_by, embedding
 						) VALUES (
-							${chunkTitle}, ${chunks[i]}, ${kind}, ${db.array([])}::text[],
+							${chunkTitle}, ${chunks[i]}, ${kind}, ${[]}::text[],
 							${source}, ${doc.id},
-							${email}, ${db.array([email])}::text[],
+							${email}, ${[email]}::text[],
 							${vecStr}::vector(1536)
 						)
 					`);
