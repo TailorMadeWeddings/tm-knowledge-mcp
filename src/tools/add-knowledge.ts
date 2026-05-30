@@ -22,8 +22,12 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				.array(z.string())
 				.optional()
 				.describe("Email(s) of who the idea belongs to (defaults to caller)"),
+			visibility: z
+				.enum(["team", "private"])
+				.optional()
+				.describe("Visibility scope: 'team' (default) or 'private' (only visible to you)"),
 		},
-		async ({ title, body, kind, tags, source, originated_by }) => {
+		async ({ title, body, kind, tags, source, originated_by, visibility }) => {
 			console.log(`[add_knowledge] ENTER title="${title}" kind=${kind}`);
 			const vec = await embed(body, "document", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
@@ -34,12 +38,14 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				? originated_by
 				: [email];
 
+			const finalVisibility = visibility ?? "team";
+
 			const db = makeDb();
 			try {
-				// Duplicate check
+				// Duplicate check — scoped to caller's visible entries
 				const dupes = await dbQuery("add_knowledge.dupe_check", () => db`
-					SELECT id, title, body, kind, similarity
-					FROM kb.match_entries(${vecStr}::vector(1536), 3)
+					SELECT id, title, body, kind, visibility, similarity
+					FROM kb.match_entries(${vecStr}::vector(1536), 3, null, ${email})
 				`);
 
 				const nearDuplicates = dupes.filter((d) => Number(d.similarity) >= DUPLICATE_THRESHOLD);
@@ -73,11 +79,11 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				const pgOrigBy = pgTextArray(finalOriginatedBy);
 
 				const [inserted] = await dbQuery("add_knowledge.insert", () => db`
-					INSERT INTO kb.entries (title, body, kind, tags, source, entered_by, originated_by, embedding)
+					INSERT INTO kb.entries (title, body, kind, tags, source, entered_by, originated_by, embedding, visibility)
 					VALUES (
 						${title}, ${body}, ${kind}, ${pgTags}::text[],
 						${source ?? null}, ${email}, ${pgOrigBy}::text[],
-						${vecStr}::vector(1536)
+						${vecStr}::vector(1536), ${finalVisibility}
 					)
 					RETURNING id
 				`);
@@ -123,6 +129,7 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 								{
 									status: "added",
 									id: inserted.id,
+									visibility: finalVisibility,
 									auto_linked: autoLinked,
 									suggested_links: suggested,
 								},

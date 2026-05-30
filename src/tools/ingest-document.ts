@@ -46,9 +46,14 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				.describe("Entry kind for the chunks"),
 			source: z.string().describe("Where this doc came from, e.g. 'brand guide'"),
 			text: z.string().describe("Full document text"),
+			visibility: z
+				.enum(["team", "private"])
+				.optional()
+				.describe("Visibility scope for all chunks: 'team' (default) or 'private' (only visible to you)"),
 		},
-		async ({ title, kind, source, text }) => {
+		async ({ title, kind, source, text, visibility }) => {
 			console.log(`[ingest_document] ENTER title="${title}" len=${text.length}`);
+			const finalVisibility = visibility ?? "team";
 
 			const db = makeDb();
 			try {
@@ -69,12 +74,12 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 					await dbQuery(`ingest_document.chunk_${i + 1}`, () => db`
 						INSERT INTO kb.entries (
 							title, body, kind, tags, source, source_doc_id,
-							entered_by, originated_by, embedding
+							entered_by, originated_by, embedding, visibility
 						) VALUES (
 							${chunkTitle}, ${chunks[i]}, ${kind}, ${pgTextArray([])}::text[],
 							${source}, ${doc.id},
 							${email}, ${pgTextArray([email])}::text[],
-							${vecStr}::vector(1536)
+							${vecStr}::vector(1536), ${finalVisibility}
 						)
 					`);
 				}
@@ -93,6 +98,7 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 								status: "ingested",
 								document_id: doc.id,
 								chunks: chunks.length,
+								visibility: finalVisibility,
 							}),
 						},
 					],

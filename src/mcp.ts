@@ -27,11 +27,11 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 		const apiKey = this.env.GEMINI_API_KEY;
 		const email = this.props!.email;
 
-		searchKnowledge.register(this.server, makeDb, apiKey);
+		searchKnowledge.register(this.server, makeDb, apiKey, email);
 		addKnowledge.register(this.server, makeDb, apiKey, email);
 		linkIdeas.register(this.server, makeDb, email);
-		synthesize.register(this.server, makeDb, apiKey);
-		listRecent.register(this.server, makeDb);
+		synthesize.register(this.server, makeDb, apiKey, email);
+		listRecent.register(this.server, makeDb, email);
 		ingestDocument.register(this.server, makeDb, apiKey, email);
 		archiveEntry.register(this.server, makeDb, email);
 		console.log("[mcp] all tools registered (7)");

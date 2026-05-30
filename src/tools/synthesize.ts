@@ -3,7 +3,7 @@ import { z } from "zod";
 import { dbQuery, pgTextArray, type MakeDb } from "../db";
 import { embed } from "../embed";
 
-export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
+export function register(server: McpServer, makeDb: MakeDb, apiKey: string, email: string) {
 	server.tool(
 		"synthesize",
 		"Retrieve a connected slice of the knowledge graph around a topic. " +
@@ -27,12 +27,12 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 				const entries = await dbQuery("synthesize.match_entries", () =>
 					kindsArr
 						? db`
-							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${pgTextArray(kindsArr)}::text[])
+							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
+							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, ${pgTextArray(kindsArr)}::text[], ${email})
 						`
 						: db`
-							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${max})
+							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
+							FROM kb.match_entries(${vecStr}::vector(1536), ${max}, null, ${email})
 						`,
 				);
 
@@ -63,7 +63,9 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 										kind: e.kind,
 										tags: e.tags,
 										source: e.source,
+										entered_by: e.entered_by,
 										originated_by: e.originated_by,
+										visibility: e.visibility,
 										similarity: Number(e.similarity).toFixed(4),
 									})),
 									edges: edges.map((l) => ({

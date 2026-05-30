@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { dbQuery, pgTextArray, type MakeDb } from "../db";
 
-export function register(server: McpServer, makeDb: MakeDb) {
+export function register(server: McpServer, makeDb: MakeDb, email: string) {
 	server.tool(
 		"list_recent",
 		"List recent knowledge-base entries, newest first.",
@@ -24,19 +24,21 @@ export function register(server: McpServer, makeDb: MakeDb) {
 				const rows = await dbQuery("list_recent.select", () =>
 					kindsArr
 						? db`
-							SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
+							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, created_at
 							FROM kb.entries
 							WHERE is_deleted = false
 							  AND created_at >= ${since.toISOString()}
 							  AND kind = ANY(${pgTextArray(kindsArr)}::text[])
+							  AND (visibility = 'team' OR (visibility = 'private' AND entered_by = ${email}))
 							ORDER BY created_at DESC
 							LIMIT ${limit ?? 20}
 						`
 						: db`
-							SELECT id, title, body, kind, tags, source, entered_by, originated_by, created_at
+							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, created_at
 							FROM kb.entries
 							WHERE is_deleted = false
 							  AND created_at >= ${since.toISOString()}
+							  AND (visibility = 'team' OR (visibility = 'private' AND entered_by = ${email}))
 							ORDER BY created_at DESC
 							LIMIT ${limit ?? 20}
 						`,
@@ -56,6 +58,7 @@ export function register(server: McpServer, makeDb: MakeDb) {
 									source: r.source,
 									entered_by: r.entered_by,
 									originated_by: r.originated_by,
+									visibility: r.visibility,
 									created_at: r.created_at,
 								})),
 								null,

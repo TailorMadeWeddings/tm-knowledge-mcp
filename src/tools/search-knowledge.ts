@@ -3,7 +3,7 @@ import { z } from "zod";
 import { dbQuery, pgTextArray, type MakeDb } from "../db";
 import { embed } from "../embed";
 
-export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
+export function register(server: McpServer, makeDb: MakeDb, apiKey: string, email: string) {
 	server.tool(
 		"search_knowledge",
 		"Search the shared knowledge base by semantic similarity. Returns ranked results.",
@@ -26,12 +26,12 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 				const rows = await dbQuery("search_knowledge.match_entries", () =>
 					kindsArr
 						? db`
-							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${pgTextArray(kindsArr)}::text[])
+							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
+							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${pgTextArray(kindsArr)}::text[], ${email})
 						`
 						: db`
-							SELECT id, title, body, kind, tags, source, originated_by, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8})
+							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
+							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, null, ${email})
 						`,
 				);
 
@@ -47,7 +47,9 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string) {
 									kind: r.kind,
 									tags: r.tags,
 									source: r.source,
+									entered_by: r.entered_by,
 									originated_by: r.originated_by,
+									visibility: r.visibility,
 									similarity: Number(r.similarity).toFixed(4),
 								})),
 								null,
