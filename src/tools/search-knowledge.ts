@@ -13,27 +13,31 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				.array(z.enum(["idea", "note", "reference", "decision", "open_question"]))
 				.optional()
 				.describe("Filter to these entry kinds"),
+			tags: z
+				.array(z.string())
+				.optional()
+				.describe("Optional tag filter — return only entries whose tags overlap with this list"),
 			limit: z.number().min(1).max(25).optional().describe("Max results (default 8)"),
 		},
-		async ({ query, kinds, limit }) => {
+		async ({ query, kinds, tags, limit }) => {
 			console.log(`[search_knowledge] ENTER query="${query.slice(0, 80)}"`);
 			const vec = await embed(query, "query", apiKey);
 			const vecStr = `[${vec.join(",")}]`;
-			const kindsArr = Array.isArray(kinds) && kinds.length > 0 ? kinds : null;
+			const pgKinds = Array.isArray(kinds) && kinds.length > 0 ? pgTextArray(kinds) : null;
+			const pgTags = Array.isArray(tags) && tags.length > 0 ? pgTextArray(tags) : null;
 
 			const db = makeDb();
 			try {
-				const rows = await dbQuery("search_knowledge.match_entries", () =>
-					kindsArr
-						? db`
-							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, ${pgTextArray(kindsArr)}::text[], ${email})
-						`
-						: db`
-							SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
-							FROM kb.match_entries(${vecStr}::vector(1536), ${limit ?? 8}, null, ${email})
-						`,
-				);
+				const rows = await dbQuery("search_knowledge.match_entries", () => db`
+					SELECT id, title, body, kind, tags, source, entered_by, originated_by, visibility, similarity
+					FROM kb.match_entries(
+						${vecStr}::vector(1536),
+						${limit ?? 8},
+						${pgKinds}::text[],
+						${email},
+						${pgTags}::text[]
+					)
+				`);
 
 				return {
 					content: [
