@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, pgTextArray, type MakeDb } from "../db";
+import { dbQuery, normalizeTags, pgTextArray, type MakeDb } from "../db";
 import { embed } from "../embed";
 
 const DUPLICATE_THRESHOLD = 0.92;
@@ -33,7 +33,7 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 			const vecStr = `[${vec.join(",")}]`;
 
 			// Normalize array columns — always real JS arrays, never strings/undefined
-			const finalTags: string[] = Array.isArray(tags) ? tags : [];
+			const finalTags = normalizeTags(Array.isArray(tags) ? tags : []);
 			const finalOriginatedBy: string[] = Array.isArray(originated_by) && originated_by.length > 0
 				? originated_by
 				: [email];

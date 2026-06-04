@@ -38,6 +38,24 @@ export type Db = ReturnType<typeof createDb>;
 export type MakeDb = () => Db;
 
 /**
+ * Normalize a tags array: trim whitespace, lowercase, drop empties, dedupe.
+ * Shared by add_knowledge, ingest_document, and retag_entry so that tag
+ * filtering is consistent across the entire knowledge base.
+ */
+export function normalizeTags(raw: string[]): string[] {
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const t of raw) {
+		const normed = t.trim().toLowerCase();
+		if (normed && !seen.has(normed)) {
+			seen.add(normed);
+			out.push(normed);
+		}
+	}
+	return out;
+}
+
+/**
  * Build a PostgreSQL array literal string from a JS array.
  * Bypasses postgres.js type inference entirely — works with
  * fetch_types:false and Hyperdrive.  Use with a ::text[] cast:

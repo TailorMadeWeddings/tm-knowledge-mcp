@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { dbQuery, pgTextArray, type MakeDb } from "../db";
+import { dbQuery, normalizeTags, pgTextArray, type MakeDb } from "../db";
 import { embedBatch } from "../embed";
 
 const TARGET_CHARS = 3200; // ~800 tokens
@@ -44,6 +44,10 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				.enum(["reference", "note"])
 				.default("reference")
 				.describe("Entry kind for the chunks"),
+			tags: z
+				.array(z.string())
+				.optional()
+				.describe("Tags applied to every chunk produced from this document"),
 			source: z.string().describe("Where this doc came from, e.g. 'brand guide'"),
 			text: z.string().describe("Full document text"),
 			visibility: z
@@ -51,8 +55,9 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 				.optional()
 				.describe("Visibility scope for all chunks: 'team' (default) or 'private' (only visible to you)"),
 		},
-		async ({ title, kind, source, text, visibility }) => {
+		async ({ title, kind, tags, source, text, visibility }) => {
 			console.log(`[ingest_document] ENTER title="${title}" len=${text.length}`);
+			const finalTags = normalizeTags(Array.isArray(tags) ? tags : []);
 			const finalVisibility = visibility ?? "team";
 
 			const db = makeDb();
@@ -76,7 +81,7 @@ export function register(server: McpServer, makeDb: MakeDb, apiKey: string, emai
 							title, body, kind, tags, source, source_doc_id,
 							entered_by, originated_by, embedding, visibility
 						) VALUES (
-							${chunkTitle}, ${chunks[i]}, ${kind}, ${pgTextArray([])}::text[],
+							${chunkTitle}, ${chunks[i]}, ${kind}, ${pgTextArray(finalTags)}::text[],
 							${source}, ${doc.id},
 							${email}, ${pgTextArray([email])}::text[],
 							${vecStr}::vector(1536), ${finalVisibility}

@@ -9,6 +9,7 @@ import * as ingestDocument from "./tools/ingest-document";
 import * as linkIdeas from "./tools/link-ideas";
 import * as listRecent from "./tools/list-recent";
 import * as searchKnowledge from "./tools/search-knowledge";
+import * as retagEntry from "./tools/retag-entry";
 import * as synthesize from "./tools/synthesize";
 
 export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
@@ -34,6 +35,7 @@ export class MyMCP extends McpAgent<Env, Record<string, never>, Props> {
 		listRecent.register(this.server, makeDb, email);
 		ingestDocument.register(this.server, makeDb, apiKey, email);
 		archiveEntry.register(this.server, makeDb, email);
-		console.log("[mcp] all tools registered (7)");
+		retagEntry.register(this.server, makeDb, email);
+		console.log("[mcp] all tools registered (8)");
 	}
 }
